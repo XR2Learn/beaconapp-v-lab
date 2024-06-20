@@ -4,8 +4,6 @@ Version 1.0.20240617
 
 In this tutorial you will learn how to use the V-Lab SDK for Unity to set-up a complex, realistic interactive virtual object with multifaceted functionality for use in actual, real-world training applications. In particular, you will create a medical lab specimen shaker with additional heating capabilities. You only will use an original 3D model for the shaker and a variety of components provided by the SDK.
 
-vid.V-Lab-SDK_advanced_usage_tutorial.mkv
-
 >**Tip:** Throughout this tutorial you will find tips that provide additional information or describe optional steps that will help you better understand what's been demonstrated that far.
 
 ## Prerequisites
@@ -37,7 +35,6 @@ Next, a few key initial steps are required.
 - Create a top-level empty gameobject named "V-Lab".
 - Add a ScreenUI component to the "V-Lab" gameobject.
 - Set the "Max Press Duration" of the ScreenUI component to 0.33.
-
 
 ![](fig.V-Lab-SDK_base_scene_setup.jpg)
 
@@ -314,6 +311,6 @@ This is left as an exercise to the reader. You should create an on/off toggle sw
 
 A total of 2 controls, 12 variables, 9 behaviours and 2 new gameobjects were required to achieve the intended interactivity and functionality of the V-Lab-Shaker virtual instrument using the V-Lab SDK.
 
-Licensed under CC BY-NC-ND 4.0.
+Licensed under CC BY-NC 4.0.
 
 Copyright (c) by Hellenic Open University.
