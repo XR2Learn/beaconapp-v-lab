@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class Knob : InteractiveObject {
+public class Knob : InteractableObject {
 
     [HideInInspector]
-    public Axes PivotAxis; //Mouse movement axis - X or Y
+    public Axes MouseMovementAxis; //Mouse movement axis - X or Y
     [HideInInspector]
     public Axes RotationAxis; //Mesh rotation axis
     
@@ -22,34 +22,34 @@ public class Knob : InteractiveObject {
     public override void Start () {
     }
 
-    public override void pivot (Vector2 _dv) {
+    public override void rotate (Vector2 _dv) {
 
-        int direction;
+        int Direction;
 
-        if (PivotAxis == Axes.X_Axis)
-            direction = (int) Mathf.Sign (_dv.x);
+        if (MouseMovementAxis == Axes.X_Axis)
+            Direction = (int) Mathf.Sign (_dv.x);
         else
-            direction = (int) Mathf.Sign (_dv.y);
+            Direction = (int) Mathf.Sign (_dv.y);
 
-        direction *= u;
+        Direction *= u;
 
-        if (direction != 0)
-            rotate (direction);
+        if (Direction != 0)
+            applyRotation (Direction);
 
     }
 
-    public virtual void rotate (int _direction) {
+    public virtual void applyRotation (int _Direction) {
     }
 
 
-    public override void done_pivoting () {        
+    public override void doneRotating () {        
     }
 
 
 
 
 
-    public virtual void turn (float _Angle) {
+    public virtual void setRotation (float _Angle) {
 
         if (RotationAxis == Axes.X_Axis)
             transform.Rotate (_Angle, 0F, 0F);
@@ -60,9 +60,6 @@ public class Knob : InteractiveObject {
 
     }
 
-
-    public virtual void affectOtherComponents () {
-    }
 
     public virtual void affectOtherComponents (int _NewPosition) {
     }

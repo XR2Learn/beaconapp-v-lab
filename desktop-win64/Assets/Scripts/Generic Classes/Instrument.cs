@@ -1,11 +1,16 @@
 using JetBrains.Annotations;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class Instrument : MonoBehaviour {
+
+    public const bool locked = true;
+    public const bool unlocked = false;
 
     public const bool ON = true;
     public const bool OFF = false;
@@ -13,17 +18,21 @@ public class Instrument : MonoBehaviour {
     public const bool connected = true;
     public const bool disconnected = false;
 
-    public const bool locked = true;
-    public const bool unlocked = false;
+    [HideInInspector]
+    public GameObject ControlLamp, ControlPanel, ControlExtraUI;
 
     [HideInInspector]
-    public GameObject ControlLamp, ControlMonitor, ControlPanel, ControlExtraUI;
+    public GameObject Location;
 
     [HideInInspector]
-    public bool View;
+    public bool State;
+
+    bool PowerController_State;
+
+    [HideInInspector]
+    public bool Cable_State; //needs to be public so as to be checked externally
 
     public static GameObject Ego;
-    public static EgoController Ego_Controller;
 
     [HideInInspector]
     public Modes Focus_Mode;
@@ -34,37 +43,25 @@ public class Instrument : MonoBehaviour {
     float Y_Angle;
     float dx, dz;
 
-    [HideInInspector]
-    public bool State;
-
-    bool PowerController_State;
-    [HideInInspector]
-    public bool Cable_State; //needs to be public so as to be checked externally
-
-    [HideInInspector]
-    public GameObject Place;
-
     #region Editor
 #if UNITY_EDITOR
 
     [CustomEditor (typeof (Instrument)), CanEditMultipleObjects]
     public class Instrument_Editor : Editor {
-        
-        public override void OnInspectorGUI () {
-            
-            base.OnInspectorGUI ();
 
-            EditorGUILayout.Space ();
+        public override void OnInspectorGUI () {
+
+            base.OnInspectorGUI ();
 
         }
 
-        public void showPlace () {
+        public void showLocation () {
 
             Instrument instrument = (Instrument)target;
 
             EditorGUILayout.Space ();
 
-            instrument.Place = EditorGUILayout.ObjectField ("Place", instrument.Place, typeof (GameObject), true) as GameObject;
+            instrument.Location = EditorGUILayout.ObjectField ("Location", instrument.Location, typeof (GameObject), true) as GameObject;
 
         }
 
@@ -73,14 +70,17 @@ public class Instrument : MonoBehaviour {
 #endif    
     #endregion
 
+    [HideInInspector]
+    public bool View;
 
     // Start is called before the first frame update
     public virtual void Start () {
 
         Ego = GameObject.Find ("Ego");
 
-        if (ControlPanel != null)
-            setFocusValues ();
+        View = unlocked;
+
+        setFocusValues ();
 
         Cable_State = connected; //Temporary, until we implement the socket
         PowerController_State = OFF;
@@ -89,13 +89,10 @@ public class Instrument : MonoBehaviour {
 
     }
 
+
     void setFocusValues () {
 
-        View = unlocked;
-
-        Ego_Controller = Ego.GetComponent<EgoController> ();
-
-        float Orientation = Orientation_in_3D_Space ();
+        float Orientation = Location.transform.localEulerAngles.y;
 
         Y_Angle = Orientation + Focus_Theta;
 
@@ -115,10 +112,6 @@ public class Instrument : MonoBehaviour {
 
     }
 
-    float Orientation_in_3D_Space () {
-        return GetComponent<Instrument> ().Place.transform.localEulerAngles.y;
-    }
-
 
     public void toggleView () {
 
@@ -135,25 +128,13 @@ public class Instrument : MonoBehaviour {
     }
 
 
-    public virtual void lockView () {
-        Ego_Controller.setMode (Focus_Mode, gameObject, transform.localPosition.x + dx,
-            transform.localPosition.z + dz, Y_Angle, Focus_Camera_RotX, Focus_Field_of_View);
+    public void lockView () {
+        Ego.GetComponent<EgoController> ().setMode (Focus_Mode, gameObject, transform.position.x + dx, transform.position.z + dz, Y_Angle, Focus_Camera_RotX, Focus_Field_of_View);
     }
 
 
-    public virtual void unlockView () {
-        Ego_Controller.setMode (Modes.Navigation);
-    }
-
-    public virtual void updateFeedback_from_Cable (bool _New_Cable_State) {
-        
-        Cable_State = _New_Cable_State;        
-        
-        updateState ();
-
-        if (ControlPanel != null)
-            ControlPanel.GetComponent<Panel> ().updateZoomability (_New_Cable_State);
-
+    public void unlockView () {
+        Ego.GetComponent<EgoController> ().setMode (Modes.Navigation);
     }
 
 
@@ -165,13 +146,22 @@ public class Instrument : MonoBehaviour {
 
     }
 
+    public virtual void updateFeedback_from_Cable (bool _New_Cable_State) {
+
+        Cable_State = _New_Cable_State;
+
+        updateState ();
+
+        if (ControlPanel != null)
+            ControlPanel.GetComponent<Panel> ().updateZoomability (_New_Cable_State);
+
+    }
+
+
 
     void updateState () {
 
         State = Cable_State && PowerController_State;
-
-        if (ControlMonitor != null)
-            ControlMonitor.GetComponent<Monitor> ().updateState (State);
 
         if (ControlLamp != null)
             ControlLamp.GetComponent<Lamp> ().updateState (State);
@@ -189,6 +179,5 @@ public class Instrument : MonoBehaviour {
     //	XAngle = Ego.transform.localEulerAngles.x;
     //	FoV = Ego.GetComponent<Camera> ().fieldOfView;
     //}
-
 
 }

@@ -4,23 +4,22 @@ public class Values_After_JointUse {
 
 	public bool JointUse_TookPlace;
 
-	public GameObject gameObject1_NewPlace;
-	public GameObject gameObject2_NewPlace;
+	public GameObject ObjectBeingCarried_NewPlace;
+	public GameObject Receptor_NewPlace;
 
-	public bool gameObject1_NewInteractivity;
-	public bool gameObject2_NewInteractivity;
+	public bool ObjectBeingCarried_NewInteractivity;
+	public bool Receptor_NewInteractivity;
 
 
-	public Values_After_JointUse (bool _JointUse_TookPlace, GameObject _NewPlace1,
-		bool _NewInteractivity1, GameObject _NewPlace2, bool _NewInteractivity2) {
+	public Values_After_JointUse (bool _JointUse_TookPlace, GameObject _NewPlace_for_ObjectBeingCarried, bool _NewInteractivity_for_ObectBeingCarried, GameObject _NewPlace_for_Receptor, bool _NewInteractivity_for_Receptor) {
 	
 		JointUse_TookPlace = _JointUse_TookPlace;
 
-		gameObject1_NewPlace = _NewPlace1;
-		gameObject1_NewInteractivity = _NewInteractivity1;
+		ObjectBeingCarried_NewPlace = _NewPlace_for_ObjectBeingCarried;
+		ObjectBeingCarried_NewInteractivity = _NewInteractivity_for_ObectBeingCarried;
 
-		gameObject2_NewPlace = _NewPlace2;
-		gameObject2_NewInteractivity = _NewInteractivity2;
+		Receptor_NewPlace = _NewPlace_for_Receptor;
+		Receptor_NewInteractivity = _NewInteractivity_for_Receptor;
 
 	}
 

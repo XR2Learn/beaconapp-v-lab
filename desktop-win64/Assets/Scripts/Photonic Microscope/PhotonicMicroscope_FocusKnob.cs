@@ -6,6 +6,8 @@ public class PhotonicMicroscope_FocusKnob : Knob {
 
     public GameObject ControlMicroscope;
     public GameObject ControlStageBase;
+    public GameObject ControlRevolvingNosepiece;
+    public GameObject ControlSpecimenHolder;
 
     [HideInInspector]
     public float Angle;
@@ -32,7 +34,7 @@ public class PhotonicMicroscope_FocusKnob : Knob {
     // Start is called before the first frame update
     public override void Start () {
 
-        PivotAxis = Axes.Y_Axis;
+        MouseMovementAxis = Axes.Y_Axis;
         RotationAxis = Axes.Z_Axis;
 
         da = 4F;
@@ -46,22 +48,40 @@ public class PhotonicMicroscope_FocusKnob : Knob {
 
     }
 
-    public override void rotate (int _direction) {
+    public override void applyRotation (int _direction) {
 
         if (ControlMicroscope.GetComponent<PhotonicMicroscope> ().Cable_State == connected) {
 
+            ControlRevolvingNosepiece.GetComponent<PhotonicMicroscope_RevolvingNosepiece> ().Collision_from_StageBaseMovement = ControlRevolvingNosepiece.GetComponent<PhotonicMicroscope_RevolvingNosepiece> ().ObjectiveLensCollision ();
+
             if (_direction < 0F && 
-                ControlStageBase.GetComponent<PhotonicMicroscope_StageBase>().Height < PhotonicMicroscope_StageBase.MaxHeight) {
-                setAngle (Angle - da);
-                ControlStageBase.GetComponent<PhotonicMicroscope_StageBase> ().move (da, Multiplier);
+                ControlStageBase.GetComponent<PhotonicMicroscope_StageBase> ().Height < PhotonicMicroscope_StageBase.MaxHeight) {
+
+                if (!ControlRevolvingNosepiece.GetComponent<PhotonicMicroscope_RevolvingNosepiece> ().Collision_from_StageBaseMovement) {
+
+                    setAngle (Angle - da);
+
+                    ControlStageBase.GetComponent<PhotonicMicroscope_StageBase> ().move (da, Multiplier);
+                
+                }
+
             } else if (_direction > 0F &&
                 ControlStageBase.GetComponent<PhotonicMicroscope_StageBase> ().Height >
                 PhotonicMicroscope_StageBase.MinHeight) {
+
                 setAngle (Angle + da);
+
                 ControlStageBase.GetComponent<PhotonicMicroscope_StageBase> ().move (-da, Multiplier);
+
             }
 
         }
+
+    }
+
+    public override void doneRotating () {
+
+        ControlSpecimenHolder.GetComponent<PhotonicMicroscope_SpecimenHolder> ().updateInteractivity_of_Self_and_Slide (ControlRevolvingNosepiece.GetComponent<PhotonicMicroscope_RevolvingNosepiece> ().Collision_from_StageBaseMovement);
 
     }
 

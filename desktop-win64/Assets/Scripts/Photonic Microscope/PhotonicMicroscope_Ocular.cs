@@ -47,7 +47,7 @@ public class PhotonicMicroscope_Ocular : Knob {
 
     }
 
-    public override void rotate (int _direction) {
+    public override void applyRotation (int _direction) {
 
         if (_direction < 0F && Height + dh <= MaxHeight) {
 

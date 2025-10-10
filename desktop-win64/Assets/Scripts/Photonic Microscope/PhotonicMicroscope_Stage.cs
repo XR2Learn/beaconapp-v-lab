@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 
-public class PhotonicMicroscope_Stage : InteractiveObject {
+public class PhotonicMicroscope_Stage : InteractableObject {
 
     public GameObject ControlMicroscopingUI;
 

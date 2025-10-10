@@ -18,19 +18,19 @@ public class PositionalKnob : Knob {
     public override void Start () {
     }
 
-    public override void rotate (int _direction) {
+    public override void applyRotation (int _Direction) {
 
-        if (_direction > 0 && Position + Step <= MaxPosition) {
+        if (_Direction > 0 && Position + Step <= MaxPosition) {
 
-            turn (da);
+            setRotation (da);
 
             Position += Step;
 
             affectOtherComponents (Position);
 
-        } else if (_direction < 0 && Position - Step >= MinPosition) {
+        } else if (_Direction < 0 && Position - Step >= MinPosition) {
 
-            turn (-da);
+            setRotation (-da);
 
             Position -= Step;
 

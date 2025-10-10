@@ -26,6 +26,8 @@ public class LogarithmicBase {
 
 public class PhotonicMicroscope_MicroscopingUI : ExtraUI {
 
+    public GameObject ControlSpecimenHolder;
+
     private const int Speed_X = 14;
     private const int Speed_Y = 16;
 
@@ -82,6 +84,7 @@ public class PhotonicMicroscope_MicroscopingUI : ExtraUI {
 
     }
 
+
     public void setImage_for_Specimen (GameObject _Specimen) {
 
         if (_Specimen != null) {
@@ -89,6 +92,8 @@ public class PhotonicMicroscope_MicroscopingUI : ExtraUI {
             //_Specimen can only be Slide
             ImageClearFG.GetComponent<Image> ().sprite = _Specimen.GetComponent<Slide> ().ImageClear;
             ImageBlurryFG.GetComponent<Image> ().sprite = _Specimen.GetComponent<Slide> ().ImageBlurry;
+
+            updateOverallBlurring (); //in case we put a slide with immersion oil on, the blurring changes
 
         } else {
 
@@ -184,6 +189,7 @@ public class PhotonicMicroscope_MicroscopingUI : ExtraUI {
     }
 
 
+
     public void updateOcularBlurring (OcularPosition _Position, float _Factor) {
         
         if (_Position == OcularPosition.Left)
@@ -201,7 +207,7 @@ public class PhotonicMicroscope_MicroscopingUI : ExtraUI {
 
     void updateOverallBlurring () {
         
-        OverallBlurring = 0.05F * (2.5F * LeftOcularBlurring + 2.5F * RightOcularBlurring + 8.5F * StageBaseBlurring + 6.5F * CondenserBlurring);
+        OverallBlurring = 0.05F * (2.5F * LeftOcularBlurring + 2.5F * RightOcularBlurring + 8.5F * (StageBaseBlurring + ExtraHindrance_for_Lens ()) + 6.5F * CondenserBlurring);
         // 2.5 + 2.5 + 8.5 + 6.5 = 20; 1/20 = 0.05
 
         OverallBlurring = Mathf.Min (OverallBlurring, 1F);
@@ -211,5 +217,22 @@ public class PhotonicMicroscope_MicroscopingUI : ExtraUI {
         ImageBlurryFG.GetComponent<Image> ().color = new Color (1F, 1F, 1F, OverallBlurring);
     
     }
+
+
+    float ExtraHindrance_for_Lens () {
+
+        if (Focus == 100)
+            if (ControlSpecimenHolder.GetComponent<PhotonicMicroscope_SpecimenHolder> ().HasSpecimen_with_ImmersionOil ())
+                return 0F;
+            else
+                return 0.8F;
+        else
+            if (ControlSpecimenHolder.GetComponent<PhotonicMicroscope_SpecimenHolder> ().HasSpecimen_with_ImmersionOil ())
+            return 0.5F;
+        else
+            return 0F;
+
+    }
+
 
 }

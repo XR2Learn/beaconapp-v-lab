@@ -4,11 +4,14 @@ using UnityEngine;
 
 public class PhotonicMicroscope_OcularLens : Panel {
 
-    public GameObject OtherLens;
+    public GameObject TwinLens;
 
     public override void updateZoomability (bool _NewZoomability) {
+
         base.updateZoomability (_NewZoomability);
-        OtherLens.GetComponent<MouseUI> ().Zoomable = _NewZoomability;
+        
+        TwinLens.GetComponent<MouseUI> ().Zoomable = _NewZoomability;
+
     }
 
 }

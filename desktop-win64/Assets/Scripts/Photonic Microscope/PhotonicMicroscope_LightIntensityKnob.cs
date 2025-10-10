@@ -7,7 +7,7 @@ public class PhotonicMicroscope_LightIntensityKnob : LightIntensityKnob {
     // Start is called before the first frame update
     public override void Start () {
 
-        PivotAxis = Axes.X_Axis;
+        MouseMovementAxis = Axes.X_Axis;
         RotationAxis = Axes.Y_Axis;
 
         MinPosition = 1;

@@ -9,5 +9,4 @@ public class Vessel : MovableObject {
         base.Start ();
     }
 
-
 }

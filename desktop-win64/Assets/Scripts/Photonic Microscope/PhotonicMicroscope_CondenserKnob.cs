@@ -15,7 +15,7 @@ public class PhotonicMicroscope_CondenserKnob : Knob {
 
     }
 
-    public override void pivot (Vector2 _dv) {
+    public override void rotate (Vector2 _dv) {
     
         float direction = Mathf.Sign (-_dv.y);
 
@@ -23,17 +23,17 @@ public class PhotonicMicroscope_CondenserKnob : Knob {
         if (direction > 0F && 
             ControlCondenser.GetComponent<PhotonicMicroscope_Condenser> ().Height < PhotonicMicroscope_Condenser.MaxHeight)
 
-            rotate (da);
+            applyRotation (da);
 
         else if (direction < 0F && 
             ControlCondenser.GetComponent<PhotonicMicroscope_Condenser> ().Height > ControlCondenser.GetComponent<PhotonicMicroscope_Condenser> ().MinHeight)
 
-            rotate (-da);
+            applyRotation (-da);
     
     }
 
-    //this function is different from rotate (int _direction) in the parental class
-    public void rotate (float _da) {
+    //this function is different from applyRotation (int _direction) in the parental class
+    public void applyRotation (float _da) {
 
         transform.Rotate (0F, _da, 0F);
         

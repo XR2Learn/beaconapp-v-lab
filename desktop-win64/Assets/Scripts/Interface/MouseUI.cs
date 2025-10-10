@@ -1,28 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
-//using UnityEditor.PackageManager;
-//using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UI;
-//using UnityEditor.SceneManagement;
+using System.Data;
+using System.Threading.Tasks;
+
+using System.Runtime.InteropServices;
+
+
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 
-public enum Tags {
-    NonInteractive,
-    Erlenmeyer500ml,
-    HeatKnob,
-    StirKnob,
-    ACSwitch,
-    CeramicPlate,
+public enum Labels {
+    NonInteractable,
+    Switch,
     LightIntensityKnob,
     CondenserKnob,
     RevolvingNosepiece,
-    Plug,
     CoarseFocusKnob,
     FineFocusKnob,
     OcularKnob,
@@ -32,9 +30,8 @@ public enum Tags {
     SpecimenHolderKnob,
     Slide,
     ApertureKnob,
-    CupboardDoor,
-    Drawer,
-    Cap
+    ImmersionOil,
+    ImmersionOilCap
 }
 
 
@@ -44,38 +41,50 @@ public enum Languages {
 }
 
 
-public class OrdinaryNames {
 
-    public List<string> LanguageSpecificNames = new List<string>();
+public class GameCursor {
 
-    public OrdinaryNames(string _NameEn, string _NameGr) {
-        LanguageSpecificNames.Add(_NameEn);
-        LanguageSpecificNames.Add(_NameGr);
+    public Texture2D Shape;
+    public Vector2 Offset;
+
+    public GameCursor (Texture2D _Shape, Vector2 _Offset) {
+        Shape = _Shape;
+        Offset = _Offset;
     }
 
 }
 
 
+public class OrdinaryNames {
 
-public class MouseUI: MonoBehaviour {
+    public List<string> LanguageSpecificNames = new List<string> ();
 
-    static Texture2D FingerCursor, HandCursor, GrabCursor, ClickingFingerCursor, EyeCursor;
+    public OrdinaryNames (string _NameEn, string _NameGr) {
+        LanguageSpecificNames.Add (_NameEn);
+        LanguageSpecificNames.Add (_NameGr);
+    }
 
-    static Vector2 mouse_offset_for_finger = new Vector2(9, 2);
-    static Vector2 mouse_offset_for_hand = new Vector2(11, 3);
-    static Vector2 mouse_offset_for_grab = new Vector2(7, 2);
-    static Vector2 mouse_offset_for_spin_arrow = new Vector2(15, 10);
-    static Vector2 mouse_offset_for_eye = new Vector2(12, 12);
+}
 
-    //cursor identifiers
-    public const int hand_cursor = 0;
-    public const int grab_cursor = 1;
-    public const int finger_cursor = 2;
-    public const int clicking_finger_cursor = 3;
-    public const int spin_arrow_cursor = 4;
-    public const int eye_cursor = 5;
 
-    public static Event occurence;
+public class MouseUI : MonoBehaviour {
+
+    static GameObject Ego;
+
+    static Texture2D WedgeCursor, FingerCursor, HandCursor, GrabCursor, PressingFingerCursor, EyeCursor;
+
+    static int Wedge = 0;
+    static int Finger = 1;
+    static int ClickingFinger = 2;
+    static int Hand = 3;
+    static int Grab = 4;
+    static int Eye = 5;
+
+    static int CurrentCursor;
+
+    static List<GameCursor> Cursors;
+
+    static Event occurence;
 
     static int Tooltip_MiddleX;
     static int Tooltip_MiddleY;
@@ -83,579 +92,545 @@ public class MouseUI: MonoBehaviour {
     static int Tooltip_SizeX;
     static int Tooltip_SizeY;
 
-    static Vector2 Coords_for_FrozenToolip;
+    static Vector2 Coords_for_FrozenToolTip;
 
     static string Text_for_Tooltip;
 
     static Texture2D TooltipBG;
 
-    public Tags Tag;
+    public Labels Label;
 
     [HideInInspector]
-    public bool Pressable, Rotatable, Movable, Zoomable;
+    public bool Zoomable, Pressable, Rotatable, Movable, Receptable;
 
-    public bool Impenetrable;
+    [HideInInspector]
+    public GameObject Place;
+
+    [HideInInspector]
+    public bool TemporarilyInaccessible;
 
     string UserFriendlyName;
 
     static Camera mainCamera;
 
-    static float Camera_Z_Distance;
+    static GameObject ObjectHoveringOver;
+    public static GameObject ObjectBeingCarried;
 
-    static GameObject ObjectHoveringOn;
-    static GameObject ObjectBeingDragged;
+    Vector3 VectorDistance_from_Camera;
 
-    static List<GameObject> BlockingObjects;
+    const float MinimumDistance_for_Interaction = 2F;
 
-    Vector3 VectorDistanceFromCamera;
+    static GameObject ObjectMouseIsDownOn;
 
-    float MinimalDistanceForObjectToBeVisible;
+    public static bool Rotating; //public because called by EgoController, too
 
-    static GameObject GameObjectMouseIsDown_On;
+    static Vector3 RayHitPoint_for_MouseDown;
 
-    static GameObject gameObject2;
-
-    static bool Rotating;
-
-    static bool MovableObjectIsMoving;
-
-    static bool MovableObjectHasJustBegunMovingVertically;
-    static bool VerticalMoveDetected;
+    static bool UsingTwoObjectsTogether;
 
     #region Editor
 #if UNITY_EDITOR
 
-    [CustomEditor(typeof(MouseUI)), CanEditMultipleObjects]
-    public class MouseUI_Editor: Editor {
+    [CustomEditor (typeof (MouseUI)), CanEditMultipleObjects]
+    public class MouseUI_Editor : Editor {
 
-        public override void OnInspectorGUI() {
+        public override void OnInspectorGUI () {
 
-            base.OnInspectorGUI();
+            base.OnInspectorGUI ();
 
             MouseUI mouseUI = (MouseUI)target;
 
-            if (mouseUI.Tag != Tags.NonInteractive) {
-                showAttributes(mouseUI);
-                assignBooleanValues(mouseUI);
+            if (mouseUI.Label != Labels.NonInteractable) {
+                showAttributes (mouseUI);
+                assignBooleanValues (mouseUI);
             }
-        }
 
-        void showAttributes(MouseUI _mouseUI) {
-
-            EditorGUILayout.BeginVertical();
-
-            _mouseUI.Pressable = EditorGUILayout.Toggle("Pressable", _mouseUI.Pressable);
-            _mouseUI.Rotatable = EditorGUILayout.Toggle("Rotatable", _mouseUI.Rotatable);
-            _mouseUI.Movable = EditorGUILayout.Toggle("Movable", _mouseUI.Movable);
-            _mouseUI.Zoomable = EditorGUILayout.Toggle("Zoomable", _mouseUI.Zoomable);
-
-            EditorGUILayout.EndVertical();
+            if (mouseUI.Movable)
+                showPlace (mouseUI);
 
         }
 
-        void assignBooleanValues(MouseUI _mouseUI) {
-            _mouseUI.Pressable = BooleanValues[_mouseUI.Tag][0];
-            _mouseUI.Rotatable = BooleanValues[_mouseUI.Tag][1];
-            _mouseUI.Movable = BooleanValues[_mouseUI.Tag][2];
-            _mouseUI.Zoomable = BooleanValues[_mouseUI.Tag][3];
+        void showAttributes (MouseUI _mouseUI) {
+
+            EditorGUILayout.BeginVertical ();
+
+            _mouseUI.Zoomable = EditorGUILayout.Toggle ("Zoomable", _mouseUI.Zoomable);
+            _mouseUI.Pressable = EditorGUILayout.Toggle ("Pressable", _mouseUI.Pressable);
+            _mouseUI.Rotatable = EditorGUILayout.Toggle ("Rotatable", _mouseUI.Rotatable);
+            _mouseUI.Movable = EditorGUILayout.Toggle ("Movable", _mouseUI.Movable);
+            _mouseUI.Receptable = EditorGUILayout.Toggle ("Receptable", _mouseUI.Receptable);
+
+            EditorGUILayout.EndVertical ();
+
+        }
+
+        void assignBooleanValues (MouseUI _mouseUI) {
+
+            _mouseUI.Zoomable = BooleanValues[_mouseUI.Label][0];
+            _mouseUI.Pressable = BooleanValues[_mouseUI.Label][1];
+            _mouseUI.Rotatable = BooleanValues[_mouseUI.Label][2];
+            _mouseUI.Movable = BooleanValues[_mouseUI.Label][3];
+            _mouseUI.Receptable = BooleanValues[_mouseUI.Label][4];
+        }
+
+
+        void showPlace (MouseUI _mouseUI) {
+
+            EditorGUILayout.Space ();
+
+            _mouseUI.Place = EditorGUILayout.ObjectField ("Place", _mouseUI.Place, typeof (GameObject), true) as GameObject;
+        
         }
 
     }
 
-#endif    
+#endif
     #endregion
 
 
     // Start is called before the first frame update
-    void Start() {
+    void Start () {
 
-        FingerCursor = Resources.Load("finger") as Texture2D;
-        HandCursor = Resources.Load("hand") as Texture2D;
-        GrabCursor = Resources.Load("grab") as Texture2D;
-        ClickingFingerCursor = Resources.Load("clicking_finger") as Texture2D;
-        EyeCursor = Resources.Load("eye") as Texture2D;
+        Ego = GameObject.Find ("Ego");
+
+        WedgeCursor = Resources.Load ("wedge") as Texture2D;
+        FingerCursor = Resources.Load ("finger") as Texture2D;
+        PressingFingerCursor = Resources.Load ("pressing_finger") as Texture2D;
+        HandCursor = Resources.Load ("hand") as Texture2D;
+        GrabCursor = Resources.Load ("grab") as Texture2D;
+        EyeCursor = Resources.Load ("eye") as Texture2D;
+
+        Cursors = new List<GameCursor> ();
+
+        Cursors.Add (new GameCursor (WedgeCursor, Vector2.zero));
+        Cursors.Add (new GameCursor (FingerCursor, new Vector2 (9, 2)));
+        Cursors.Add (new GameCursor (PressingFingerCursor, new Vector2 (9, 2)));
+        Cursors.Add (new GameCursor (HandCursor, new Vector2 (11, 3)));
+        Cursors.Add (new GameCursor (GrabCursor, new Vector2 (7, 2)));
+        Cursors.Add (new GameCursor (EyeCursor, new Vector2 (12, 12)));
 
         Tooltip_MiddleX = 120;
-
         Tooltip_SizeX = 2 * Tooltip_MiddleX;
 
         Tooltip_SizeY = 50;
         Tooltip_MiddleY = Tooltip_SizeY + 5;
 
-        TooltipBG = Resources.Load("ui_tooltip") as Texture2D;
+        TooltipBG = Resources.Load ("ui_tooltip") as Texture2D;
 
         mainCamera = Camera.main;
 
-        if (Tag == Tags.NonInteractive)
-            MinimalDistanceForObjectToBeVisible = 1000F; //in order to take into account any bench
-        else if (Tag == Tags.CupboardDoor || Tag == Tags.Drawer)
-            MinimalDistanceForObjectToBeVisible = 3F;
-        else
-            MinimalDistanceForObjectToBeVisible = 1.5F;
+        ObjectHoveringOver = null;
 
-        ObjectHoveringOn = null;
-        ObjectBeingDragged = null;
+        ObjectBeingCarried = null;
 
-        BlockingObjects = new List<GameObject>();
-
-        GameObjectMouseIsDown_On = null;
-
-        gameObject2 = null;
+        ObjectMouseIsDownOn = null;
 
         Rotating = false;
 
-        MovableObjectIsMoving = false;
+        TemporarilyInaccessible = false;
 
-        MovableObjectHasJustBegunMovingVertically = false;
-        VerticalMoveDetected = false;
+        UserFriendlyName = AttributedName (Label);
 
-        UserFriendlyName = AttributedName(Tag);
+        CurrentCursor = Wedge;
 
-    }
+        RayHitPoint_for_MouseDown = Vector3.zero;
 
-
-    void OnMouseOver() {
-
-        VectorDistanceFromCamera = transform.position - mainCamera.transform.position;
-
-        if (!Rotating && VectorDistanceFromCamera.magnitude < MinimalDistanceForObjectToBeVisible) {
-
-            ObjectHoveringOn = gameObject;
-
-            if (Tag != Tags.NonInteractive) {
-
-                Text_for_Tooltip = UserFriendlyName;
-
-                if (GameObjectMouseIsDown_On == null && ObjectBeingDragged == null) {
-
-                    if (Pressable)
-                        setCursor(finger_cursor);
-                    else if (Zoomable)
-                        setCursor(eye_cursor);
-                    else if (Rotatable || Movable)
-                        setCursor(hand_cursor);
-
-                }
-                else if (GameObjectMouseIsDown_On != gameObject) {
-
-                    gameObject2 = gameObject;
-
-                }
-
-            }
-
-        }
+        UsingTwoObjectsTogether = false;
 
     }
 
 
-    void OnMouseExit() {
 
-        if (Tag != Tags.NonInteractive) {
+    static void switchCursor (int _CursorID) {
 
-            if (ObjectBeingDragged == null) {
+        CurrentCursor = _CursorID;
 
-                ObjectHoveringOn = null;
-                Text_for_Tooltip = null;
-
-                resetCursor();
-
-            }
-            else
-                gameObject2 = null;
-
-        }
+        Cursor.SetCursor (Cursors[CurrentCursor].Shape, Cursors[CurrentCursor].Offset, CursorMode.Auto);
 
     }
 
 
-    void OnMouseDown() {
-
-        if (Tag != Tags.NonInteractive) {
-
-            if (ObjectHoveringOn == gameObject) {
-
-                GameObjectMouseIsDown_On = gameObject;
-
-                if (Movable) {
-
-                    Camera_Z_Distance = mainCamera.WorldToScreenPoint(transform.position).z;
-                    //it needs to be calucated here, since the object will be being moved at this
-                    //camera distance
-
-                    setCursor(grab_cursor);
-
-                    if (GetComponent<InteractiveObject>().Place == null) //not to straighten objects who are in/on other objects and have got new but legit rotation
-                        GetComponent<MovableObject>().restoreUprightRotation();
-                }
-                else if (Rotatable) {
-
-                    Coords_for_FrozenToolip =
-                        new Vector2(occurence.mousePosition.x, occurence.mousePosition.y);
-
-                    setCursor(grab_cursor);
-
-                }
-                else if (Pressable) {
-
-                    GetComponent<InteractiveObject>().press();
-
-                    setCursor(clicking_finger_cursor);
-
-                }
-                else if (Zoomable) {
-
-                    GetComponent<InteractiveObject>().zoom();
-
-                    resetCursor();
-
-                }
-
-            }
-
-        }
-
-    }
-
-
-    void OnMouseDrag() {
-
-        if (Tag != Tags.NonInteractive && GameObjectMouseIsDown_On == gameObject) { /* so that you won't able to drag an object if you are not close enough to it */
-
-            if (Rotating || BlockingObjects.Count == 0) {/* this condition secures that objects cannot be dragged through another interactive object (unless a rotatable is being rotated) */
-
-                if (Rotatable || Movable)
-                    ObjectBeingDragged = gameObject;
-
-                float mouse_dx = Input.GetAxis("Mouse X");
-                float mouse_dy = Input.GetAxis("Mouse Y");
-
-                if (Movable && (MovableObjectIsMoving
-                    || (mouse_dx != 0F || mouse_dy != 0F))) {
-                    //movement of mouse is checked because when the object is pressed down on, it gets a different position from the original one as mouse cursor's position, when converted to world screen co-ords, is different from object's co-ords
-                    //MovableObjectIsMoving is checked in order to secure that the object will stay in the air as long as the mouse button is pressed, even if the mouse is not moving
-
-                    MovableObjectIsMoving = true;
-
-                    freezeObjectRotation();
-
-                    Vector3 Screen_Position = new Vector3(Input.mousePosition.x, Input.mousePosition.y, Camera_Z_Distance); //added z axis to screen point
-
-                    Vector3 New_World_Position = mainCamera.ScreenToWorldPoint(Screen_Position);
-
-                    transform.position = New_World_Position;
-
-                    if (!MovableObjectHasJustBegunMovingVertically &&
-                        mouse_dy != 0F) {
-
-                        MovableObjectHasJustBegunMovingVertically = true;
-
-                        if (mouse_dy < 0F)
-                            VerticalMoveDetected = true;
-
-                    }
-
-                    if (GetComponent<InteractiveObject>().Place != null)
-                        GetComponent<InteractiveObject>().Place.GetComponent<InteractiveObject>().evacuate(gameObject);
-
-                }
-                else if (Rotatable && occurence.isMouse) {
-                    //without "occurence.isMouse == true", object is not properly rotated
-
-                    Rotating = true;
-
-                    Vector2 dv = occurence.delta;
-
-                    GetComponent<InteractiveObject>().pivot(dv);
-
-                }
-
-            }
-
-        }
-
-    }
-
-
-    void OnMouseUp() {
-
-        bool ObjectedAllowedToRoll;
-
-        ObjectedAllowedToRoll = (Movable) ? true : false;
-
-        if (ObjectBeingDragged == gameObject && gameObject2 != null && gameObject2 != gameObject
-            && !Rotatable && !Pressable && GetComponent<InteractiveObject>()) {
-            //gameObject2 !== gameObject needs to be checked because with OnMouseDrag (), gameObject2 may become equal to gameObject and ObjectBeingDragged
-
-            bool JointUse_Result = GetComponent<MouseUI>().tryCombining_With(gameObject2);
-
-            if (JointUse_Result)
-                ObjectedAllowedToRoll = false;
-
-        }
-        else if (Rotating) {
-
-            GetComponent<InteractiveObject>().done_pivoting();
-
-            Rotating = false;
-
-        }
-
-        if (ObjectedAllowedToRoll)
-            GetComponent<MouseUI>().letObjectRoll();
-
-        MovableObjectHasJustBegunMovingVertically = false;
-        VerticalMoveDetected = false;
-
-        MovableObjectIsMoving = false;
-        GameObjectMouseIsDown_On = null;
-
-        ObjectHoveringOn = null; //it needs to be set to null every time, otherwise the tooltip may continue after done rotating a knob or moving an object
-
-        ObjectBeingDragged = null;
-        gameObject2 = null;
-
-        BlockingObjects.Clear();
-
-        resetCursor();
-
-    }
-
-
-    bool tryCombining_With(GameObject _GameObject2) {
-
-        Debug.Log($"MouseUI.tryCombiningWith, this: {gameObject.name}, with: {_GameObject2.name}");
-
-        Values_After_JointUse ResultValues =
-            _GameObject2.GetComponent<InteractiveObject>().use_with(gameObject);
-
-        if (ResultValues.JointUse_TookPlace) {
-
-            GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
-
-            //gameObject2's handling needs to be BEFORE gameObject1's because gameObject1 might be child of gameObject2
-            if (ResultValues.gameObject2_NewPlace != null)
-                _GameObject2.GetComponent<InteractiveObject>().Place = ResultValues.gameObject2_NewPlace;
-
-            _GameObject2.GetComponent<MouseUI>().setInteractivity(
-                ResultValues.gameObject2_NewInteractivity);
-
-            if (ResultValues.gameObject1_NewPlace != null)
-                gameObject.GetComponent<InteractiveObject>().Place = ResultValues.gameObject1_NewPlace;
-
-            GetComponent<MouseUI>().setInteractivity(
-                ResultValues.gameObject1_NewInteractivity);
-
-        }
-
-        return ResultValues.JointUse_TookPlace;
-
-    }
-
-
-    void freezeObjectRotation() {
-        GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezeRotation;
-    }
-
-
-    void letObjectRoll() {
-        GetComponent<Rigidbody>().freezeRotation = false;
-    }
-
-
-    private void OnCollisionStay(Collision _collision) {
-
-        if (VerticalMoveDetected) {
-
-            if (ObjectBeingDragged == gameObject) {
-
-                if (_collision.gameObject.GetComponent<MouseUI>() && _collision.gameObject.GetComponent<MouseUI>().Impenetrable &&
-                    !BlockingObjects.Contains(_collision.gameObject)) {
-
-                    BlockingObjects.Add(_collision.gameObject);
-
-
-                }
-
-            }
-
-            VerticalMoveDetected = false;
-
-        }
-
-    }
-
-
-    void OnCollisionEnter(Collision _collision) {
-
-        if (!Rotating) {
-
-            if (ObjectBeingDragged == gameObject) {
-
-                if (_collision.gameObject.GetComponent<MouseUI>() && _collision.gameObject.GetComponent<MouseUI>().Impenetrable &&
-                    !BlockingObjects.Contains(_collision.gameObject)) {
-
-                    BlockingObjects.Add(_collision.gameObject);
-
-                }
-
-            }
-
-        }
-
-    }
-
-
-    void OnCollisionExit(Collision _collision) {
-
-        if (!Rotating) {
-
-            if (ObjectBeingDragged == gameObject)
-                BlockingObjects.Remove(_collision.gameObject);
-
-
-        }
-
-    }
-
-
-    public static void setCursor(int _cursor_type) {
-
-        switch (_cursor_type) {
-            case hand_cursor:
-                Cursor.SetCursor(HandCursor, mouse_offset_for_hand, CursorMode.Auto);
-                break;
-            case grab_cursor:
-                Cursor.SetCursor(GrabCursor, mouse_offset_for_grab, CursorMode.Auto);
-                break;
-            case finger_cursor:
-                Cursor.SetCursor(FingerCursor, mouse_offset_for_finger, CursorMode.Auto);
-                break;
-            case clicking_finger_cursor:
-                Cursor.SetCursor(ClickingFingerCursor, mouse_offset_for_finger, CursorMode.Auto);
-                break;
-            case spin_arrow_cursor:
-                Cursor.SetCursor(GrabCursor, mouse_offset_for_spin_arrow, CursorMode.Auto);
-                break;
-            case eye_cursor:
-                Cursor.SetCursor(EyeCursor, mouse_offset_for_eye, CursorMode.Auto);
-                break;
-        }
-
-    }
-
-
-    public static void resetCursor() {
-        Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
-    }
-
-
-    public static void callOnGUI() {
+    public static void callOnGUI () {
+
+#if !UNITY_EDITOR
+        if (EgoController.CursorFrozen)
+            DisplayFakeCursor ();
+#endif
 
         occurence = Event.current;
 
-        if (!Rotating && ObjectHoveringOn != null && ObjectBeingDragged != ObjectHoveringOn &&
-            ObjectHoveringOn.GetComponent<MouseUI>().Tag != Tags.NonInteractive)
-            DisplayTooltip();
+        if (!UsingTwoObjectsTogether && !Rotating && ObjectHoveringOver != null &&
+            ObjectBeingCarried != ObjectHoveringOver &&
+            ObjectHoveringOver.GetComponent<MouseUI> ().Label != Labels.NonInteractable) {
+
+            DisplayTooltip ();
+        }
         else if (Rotating)
-            DisplayFrozenTooltip();
+            DisplayFrozenTooltip ();
 
     }
 
 
-    static void DisplayTooltip() {
+    static void DisplayFakeCursor () {
+        if (!UsingTwoObjectsTogether)
+            GUI.DrawTexture (new Rect (Screen.width / 2 - Cursors[CurrentCursor].Offset.x,
+                Screen.height / 2 - Cursors[CurrentCursor].Offset.y, 32, 32),
+                Cursors[CurrentCursor].Shape);
+    }
+
+
+    static void DisplayTooltip () {
         GUI.skin.box.alignment = TextAnchor.MiddleCenter;
         GUI.skin.box.normal.background = TooltipBG;
         GUI.skin.box.fontSize = 16;
-        GUI.skin.box.normal.textColor = Color.yellow;
-        GUI.backgroundColor = new Color(0F, 0F, 0F, 0.3F);
-        GUI.Box(new Rect(occurence.mousePosition.x - Tooltip_MiddleX,
+        GUI.skin.box.normal.textColor = UnityEngine.Color.yellow;
+        GUI.backgroundColor = new UnityEngine.Color (0F, 0F, 0F, 0.3F);
+        GUI.Box (new Rect (occurence.mousePosition.x - Tooltip_MiddleX,
             occurence.mousePosition.y - Tooltip_MiddleY, Tooltip_SizeX, Tooltip_SizeY),
             Text_for_Tooltip);
     }
 
-    static void DisplayFrozenTooltip() {
+
+    static void DisplayFrozenTooltip () {
         GUI.skin.box.alignment = TextAnchor.MiddleCenter;
         GUI.skin.box.normal.background = TooltipBG;
         GUI.skin.box.fontSize = 16;
-        GUI.skin.box.normal.textColor = Color.yellow;
-        GUI.backgroundColor = new Color(0F, 0F, 0F, 0.3F);
-        GUI.Box(new Rect(Coords_for_FrozenToolip.x - Tooltip_MiddleX,
-                Coords_for_FrozenToolip.y - Tooltip_MiddleY, Tooltip_SizeX, Tooltip_SizeY),
+        GUI.skin.box.normal.textColor = UnityEngine.Color.yellow;
+        GUI.backgroundColor = new UnityEngine.Color (0F, 0F, 0F, 0.3F);
+        GUI.Box (new Rect (Coords_for_FrozenToolTip.x - Tooltip_MiddleX,
+                Coords_for_FrozenToolTip.y - Tooltip_MiddleY, Tooltip_SizeX, Tooltip_SizeY),
                 Text_for_Tooltip);
     }
 
 
-    public void setInteractivity(bool _InteractivityState) {
+    void OnMouseOver () {
 
-        for (int i = 0; i < GetComponents<BoxCollider>().Length; i++)
-            GetComponents<BoxCollider>()[i].enabled = _InteractivityState;
+        if (Label != Labels.NonInteractable && !TemporarilyInaccessible && (!Movable ||
+            EgoController.PermittingCollection_of_Objects[Ego.GetComponent<EgoController> ().Mode])) {
 
-        //if (!_object.GetComponent<pipette> ()) {
+            VectorDistance_from_Camera = transform.position - mainCamera.transform.position;
 
-        for (int i = 0; i < transform.childCount; i++) {
+            if (!Rotating && Label != Labels.NonInteractable &&
+                VectorDistance_from_Camera.magnitude < MinimumDistance_for_Interaction) {
 
-            transform.GetChild(i).GetComponent<MouseUI>().setInteractivity(_InteractivityState);
+                Text_for_Tooltip = UserFriendlyName;
+
+                if (ObjectBeingCarried == null && ObjectMouseIsDownOn == null) {
+
+                    ObjectHoveringOver = gameObject;
+
+                    if (Pressable)
+                        switchCursor (Finger);
+                    else if (Zoomable)
+                        switchCursor (Eye);
+                    else if (Rotatable || Movable)
+                        switchCursor (Hand);
+
+                } else if (Receptable && ObjectBeingCarried != null)
+                    //cursor is already grab in this case
+                    ObjectHoveringOver = gameObject;
+
+            }
+
+        }
+    
+    }
+
+
+    void OnMouseExit () {
+
+            if (Label != Labels.NonInteractable && !Rotating) {
+
+                ObjectHoveringOver = null;
+
+                if (ObjectBeingCarried == null)
+                    switchCursor (Wedge);
+                else
+                    switchCursor (Grab);
+
+            }        
+
+    }
+
+
+
+    void OnMouseDown () {
+
+        if (Label != Labels.NonInteractable && 
+            ObjectHoveringOver == gameObject) {
+
+            ObjectMouseIsDownOn = gameObject;
+
+            if (Movable && ObjectBeingCarried == null) {//in case a movable is also a receptable, e.g. immersion oil; in this case, we want the cursor to be grab with mouse down only if not carrying another object
+
+                switchCursor (Grab);
+
+            } else if (Rotatable && !Rotating && ObjectBeingCarried == null) {
+
+                Coords_for_FrozenToolTip =
+                    new Vector2 (occurence.mousePosition.x, occurence.mousePosition.y);
+
+                switchCursor (Grab);
+
+            } else if (Pressable) {
+
+                GetComponent<InteractableObject> ().press ();
+
+                switchCursor (ClickingFinger);
+
+            } else if (Zoomable) {
+
+                GetComponent<InteractableObject> ().zoom ();
+
+                switchCursor (Wedge);
+
+            } else if (Receptable && ObjectBeingCarried != null) {
+
+                switchCursor (Hand);
+
+            }
+
+        } else if (ObjectBeingCarried != null && tag == "Bench") {
+
+            //first ray casted - when mouse is down
+            Ray ray = mainCamera.ScreenPointToRay (Input.mousePosition);
+            RaycastHit hit;
+
+            Physics.Raycast (ray, out hit);
+
+            VectorDistance_from_Camera = hit.point - mainCamera.transform.position;
+
+            if (VectorDistance_from_Camera.magnitude < MinimumDistance_for_Interaction) {
+
+                RayHitPoint_for_MouseDown = hit.point;
+
+                switchCursor (Hand);
+
+            }
 
         }
 
     }
 
 
-    static readonly Dictionary<Tags, OrdinaryNames> NameAttribution = new Dictionary<Tags, OrdinaryNames> {
-        {Tags.NonInteractive, new OrdinaryNames(null,null)},
-        {Tags.Erlenmeyer500ml, new OrdinaryNames ("ERLENMEYER 500ml","йымийг жиакг 500ml")},
-        {Tags.HeatKnob, new OrdinaryNames ("HEAT KNOB","йовкиас хеяламсгс")},
-        {Tags.StirKnob, new OrdinaryNames ("STIR KNOB","йовкиас амадеусгс")},
-        {Tags.ACSwitch, new OrdinaryNames ("SWITCH","диайоптгс")},
-        {Tags.CeramicPlate, new OrdinaryNames ("CERAMIC PLATE","йеяалийг пкайа")},
-        {Tags.LightIntensityKnob, new OrdinaryNames ("LIGHT INTENSITY KNOB","йовкиас емтасгс жытос")},
-        {Tags.CondenserKnob, new OrdinaryNames ("CONDENSER KNOB","йовкиас сулпуймытг")},
-        {Tags.RevolvingNosepiece, new OrdinaryNames ("REVOLVING NOSEPIECE","пеяистяежолемг йежакг")},
-        {Tags.Plug, new OrdinaryNames ("PLUG","йакыдио")},
-        {Tags.CoarseFocusKnob, new OrdinaryNames("COARSE FOCUS KNOB", "адяос йовкиас")},
-        {Tags.FineFocusKnob, new OrdinaryNames("FINE FOCUS KNOB", "лийяолетяийос йовкиас")},
-        {Tags.OcularKnob, new OrdinaryNames ("OCULAR LENS","пяосожхаклиос жайос")},
-        {Tags.OcularLens, new OrdinaryNames ("OCULAR LENS","пяосожхаклиос жайос")},
-        {Tags.SpecimenHolder, new OrdinaryNames ("SPECIMEN HOLDER", "одгцос деицлатос")},
-        {Tags.StageKnob, new OrdinaryNames ("STAGE KNOB","йовкиас тяапефас")},
-        {Tags.SpecimenHolderKnob, new OrdinaryNames ("SPECIMEN HOLDER KNOB","йовкиас одгцоу деицлатос")},
-        {Tags.Slide, new OrdinaryNames ("SPECIMEN","деицла")},
-        {Tags.ApertureKnob, new OrdinaryNames ("APERTURE KNOB","ловкос ияидас")},
-        {Tags.CupboardDoor, new OrdinaryNames ("CUPBOARD DOOR","поята мтоукапиоу")},
-        {Tags.Drawer, new OrdinaryNames ("DRAWER","суятаяи")},
-        {Tags.Cap, new OrdinaryNames ("CAP", "йапайи")}
-    };
 
-    public static string AttributedName(Tags _NameTag) {
-        return NameAttribution[_NameTag].LanguageSpecificNames[(int)Specs.Language];
+
+    void OnMouseDrag () {
+
+        if (Rotatable && ObjectMouseIsDownOn == gameObject) {//the check whether ObjectMouseIsDownOn has the value of the current gameObject secures that a knob cannot be rotated when Ego is too far away (having the value, means that it has gone through OnMouseOver which filters out the interaction with long distant interactable objects)
+
+            Rotating = true;
+
+            float mouse_dx = Input.GetAxis ("Mouse X");
+            float mouse_dy = Input.GetAxis ("Mouse Y");
+
+            if (mouse_dx != 0F || mouse_dy != 0F)
+                GetComponent<InteractableObject> ().rotate (new Vector2 (mouse_dx, -mouse_dy));
+
+        }
+
     }
 
 
-    public static readonly Dictionary<Tags, List<bool>> BooleanValues =
-        new Dictionary<Tags, List<bool>>() {
-        //1st: Pressable; 2nd: Rotatable; 3rd: Movable; 4th: Zoomable
-        {Tags.Erlenmeyer500ml, new List<bool> {false,false,true,false}},
-        {Tags.HeatKnob, new List<bool> {false,true,false,false}},
-        {Tags.StirKnob, new List<bool> {false,true,false,false}},
-        {Tags.ACSwitch, new List<bool> {true,false,false,false}},
-        {Tags.CeramicPlate, new List<bool> {false,false,false,false}},
-        {Tags.LightIntensityKnob, new List<bool> {false,true,false,false}},
-        {Tags.CondenserKnob, new List<bool> {false,true,false,false}},
-        {Tags.RevolvingNosepiece, new List<bool> {false,true,false,false}},
-        {Tags.Plug, new List<bool> {false,false,true,false}},
-        {Tags.CoarseFocusKnob, new List<bool> {false,true,false,false}},
-        {Tags.FineFocusKnob, new List<bool> {false,true,false,false}},
-        {Tags.OcularKnob, new List<bool> {false,true,false,false}},
-        {Tags.OcularLens, new List<bool> {false,false,false,true}},
-        {Tags.SpecimenHolder, new List<bool> {false,false,false,false}},
-        {Tags.StageKnob, new List<bool> {false,true,false,false}},
-        {Tags.SpecimenHolderKnob, new List<bool> {false,true,false,false}},
-        {Tags.Slide, new List<bool> {false,false,true,false}},
-        {Tags.ApertureKnob, new List<bool> {false,true,false,false}},
-        {Tags.CupboardDoor, new List<bool> {false,true,false,false}},
-        {Tags.Drawer, new List<bool> {false,true,false,false}},
-        {Tags.Cap, new List<bool> {false,false,true,false}},
+
+    async Task OnMouseUp () {
+
+        if (Rotating) {
+
+            GetComponent<InteractableObject> ().doneRotating ();
+
+            Rotating = false;
+
+            switchCursor (Wedge); //if the cursor stops over the rotatable, it will immediately become a hand due to OnMouseOver()
+
+        } else if (Label != Labels.NonInteractable) {
+
+            if (ObjectMouseIsDownOn == gameObject && ObjectHoveringOver == gameObject) {
+
+                if (Movable && ObjectBeingCarried == null) { //clicking on an object to pick it up
+
+                    setInteractivity (false);
+
+                    if (Place != null 
+                        && Place.GetComponent<InteractableObject>())
+                        Place.GetComponent<InteractableObject> ().evacuate (gameObject);
+
+                    Ego.GetComponent<EgoController> ().attach (gameObject);
+
+                    ObjectBeingCarried = gameObject;
+
+                    switchCursor (Grab);
+
+                } else if (Receptable && ObjectBeingCarried != null) {//clicking on an object to put the object being carried on it
+
+                    await tryUsingTogether_with_ObjectBeingCarried ();
+                    
+                    //cursor and ObjectBeingCarried variable are being dealt inside tryUsingTogether_with_ObjectBeingCarried()
+
+                }
+
+            }
+
+        } else if (ObjectBeingCarried != null && tag == "Bench") {
+
+            //second ray casted - when mouse is up
+            Ray ray = mainCamera.ScreenPointToRay (Input.mousePosition);
+            RaycastHit hit;
+
+            Physics.Raycast (ray, out hit);
+
+            if (MathFunctions.ApproximateProximity_of (RayHitPoint_for_MouseDown, hit.point, 0.1F)
+                && !ObjectBeingCarried.GetComponent<MouseUI> ().AreThereObjects_around (hit.point)) {
+
+                ObjectBeingCarried.transform.SetParent (null);
+
+                ObjectBeingCarried.GetComponent<MovableObject> ().restoreUprightRotation ();
+
+                ObjectBeingCarried.transform.position = new Vector3 (hit.point.x, hit.point.y + ObjectBeingCarried.GetComponent<MovableObject> ().Y_Offset_for_Relocation, hit.point.z);
+
+                ObjectBeingCarried.GetComponent<MouseUI> ().setInteractivity (true);
+
+                ObjectBeingCarried = null;
+
+            } else
+                switchCursor (Grab);
+
+        }
+
+        ObjectMouseIsDownOn = null;
+
+        ObjectHoveringOver = null; //it needs to be set to null every time, otherwise the tooltip may continue after done rotating a knob
+    
+    }
+
+
+    async Task tryUsingTogether_with_ObjectBeingCarried () {
+
+//#if UNITY_EDITOR
+//        Cursor.visible = false;
+//No point to hide the cursor in Editor mode, since it's always visible.
+
+        UsingTwoObjectsTogether = true;
+
+        Values_After_JointUse ResultValues = await GetComponent<InteractableObject> ().use_with (ObjectBeingCarried);
+
+        UsingTwoObjectsTogether = false;
+
+//#if UNITY_EDITOR
+//        Cursor.visible = true;
+
+        if (ResultValues.JointUse_TookPlace) {
+
+            setInteractivity (ResultValues.Receptor_NewInteractivity);
+            //Receptor's handling needs to be BEFORE ObjectBeingCarried's because ObjectBeingCarried might become child of Receptor
+
+            if (ResultValues.Receptor_NewPlace != null)
+                Place = ResultValues.Receptor_NewPlace;
+
+            ObjectBeingCarried.GetComponent<MouseUI> ().setInteractivity (ResultValues.ObjectBeingCarried_NewInteractivity);
+            //interactivity of ObjectBeingCarried needs to be set BEFORE potentially changing its value to null
+
+            if (ResultValues.ObjectBeingCarried_NewPlace != null) {
+
+                ObjectBeingCarried.GetComponent<MouseUI> ().Place = ResultValues.ObjectBeingCarried_NewPlace;
+
+                ObjectBeingCarried = null;
+
+                switchCursor (Wedge);
+
+            } else {//if continuing carrying the object, e.g. after using immersion oil with slide
+
+                Ego.GetComponent<EgoController> ().attach (ObjectBeingCarried); //in case it has been detached (e.g. the immersion oil has become child of slide)
+
+                switchCursor (Grab);
+            
+            }
+        
+        }
+
+    }
+
+
+    bool AreThereObjects_around (Vector3 _HitPoint) {
+
+        Collider[] OtherColliders = Physics.OverlapSphere (_HitPoint, GetComponent<MeshRenderer> ().bounds.size.magnitude / 2);
+
+        for (int i = 0; i < OtherColliders.Length; i++) {
+
+            if (OtherColliders[i].gameObject.tag != "Bench" && 
+                OtherColliders[i].gameObject.tag != "Room") {
+
+                return true;
+
+            }
+
+        }
+
+            return false;
+
+    }
+
+
+
+
+public void setInteractivity (bool _InteractivityState) {
+
+        for (int i = 0; i < GetComponents<BoxCollider> ().Length; i++)
+            GetComponents<BoxCollider> ()[i].enabled = _InteractivityState;
+
+        for (int i = 0; i < transform.childCount; i++) {
+
+            if (transform.GetChild (i).GetComponent<MouseUI> ())
+                transform.GetChild (i).GetComponent<MouseUI> ().setInteractivity (_InteractivityState);
+
+        }
+
+    }
+
+
+    static readonly Dictionary<Labels, OrdinaryNames> NameAttribution = new Dictionary<Labels, OrdinaryNames> {
+        {Labels.NonInteractable, new OrdinaryNames(null,null)},
+        {Labels.Switch, new OrdinaryNames ("SWITCH","диайоптгс")},
+        {Labels.LightIntensityKnob, new OrdinaryNames ("LIGHT INTENSITY KNOB","йовкиас емтасгс жытос")},
+        {Labels.CondenserKnob, new OrdinaryNames ("CONDENSER KNOB","йовкиас сулпуймытг")},
+        {Labels.RevolvingNosepiece, new OrdinaryNames ("REVOLVING NOSEPIECE","пеяистяежолемг йежакг")},
+        {Labels.CoarseFocusKnob, new OrdinaryNames("COARSE FOCUS KNOB", "адяос йовкиас")},
+        {Labels.FineFocusKnob, new OrdinaryNames("FINE FOCUS KNOB", "лийяолетяийос йовкиас")},
+        {Labels.OcularKnob, new OrdinaryNames ("OCULAR LENS","пяосожхаклиос жайос")},
+        {Labels.OcularLens, new OrdinaryNames ("OCULAR LENS","пяосожхаклиос жайос")},
+        {Labels.SpecimenHolder, new OrdinaryNames ("SPECIMEN HOLDER", "одгцос деицлатос")},
+        {Labels.StageKnob, new OrdinaryNames ("STAGE KNOB","йовкиас тяапефас")},
+        {Labels.SpecimenHolderKnob, new OrdinaryNames ("SPECIMEN HOLDER KNOB","йовкиас одгцоу деицлатос")},
+        {Labels.Slide, new OrdinaryNames ("SPECIMEN","деицла")},
+        {Labels.ApertureKnob, new OrdinaryNames ("APERTURE KNOB","ловкос ияидас")},
+        {Labels.ImmersionOil, new OrdinaryNames ("IMMERSION OIL", "йедяекаио")},
+        {Labels.ImmersionOilCap, new OrdinaryNames ("CAP", "йапайи")}
     };
+
+    public static string AttributedName (Labels _NameLabel) {
+        return NameAttribution[_NameLabel].LanguageSpecificNames[(int)Specs.Language];
+    }
+
+
+    public static readonly Dictionary<Labels, List<bool>> BooleanValues =
+        new Dictionary<Labels, List<bool>> () {
+        //1st: Zoomable; 2nd: Pressable; 3rd: Rotatable; 4th: Movable; 5th: Receptable
+        {Labels.Switch, new List<bool> {false,true,false,false,false }},
+        {Labels.LightIntensityKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.CondenserKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.RevolvingNosepiece, new List<bool> {false,false,true,false,false}},
+        {Labels.CoarseFocusKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.FineFocusKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.OcularKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.OcularLens, new List<bool> {true,false,false,false,false}},
+        {Labels.SpecimenHolder, new List<bool> {false,false,false,false,true}},
+        {Labels.StageKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.SpecimenHolderKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.Slide, new List<bool> {false,false,false,true,true}},
+        {Labels.ApertureKnob, new List<bool> {false,false,true,false,false}},
+        {Labels.ImmersionOil, new List<bool> {false,false,false,true,true}},
+        {Labels.ImmersionOilCap, new List<bool> {false,false,false,true,false}}
+    };
+
 
 }

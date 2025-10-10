@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Switch : InteractiveObject {
+public class Switch : InteractableObject {
 
     public GameObject ControlInstrument;
 
@@ -45,7 +45,7 @@ public class Switch : InteractiveObject {
         else if (RotationAxis == Axes.Y_Axis)
             transform.localEulerAngles = new Vector3 (transform.localEulerAngles.x, _NewAngle,
                 transform.localEulerAngles.z);
-        else
+        else //if (RotationAxis == Axes.Z_Axis)
             transform.localEulerAngles = new Vector3 (transform.localEulerAngles.x,
                 transform.localEulerAngles.y, _NewAngle);
 

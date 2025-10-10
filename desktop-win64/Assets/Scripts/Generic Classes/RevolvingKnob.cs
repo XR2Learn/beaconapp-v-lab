@@ -9,11 +9,9 @@ public class RevolvingKnob : Knob {
     }
 
 
-    public override void rotate (int _direction) {
+    public override void applyRotation (int _Direction) {
 
-        turn (_direction * da);
-
-        affectOtherComponents ();
+        setRotation (_Direction * da);
 
     }
 

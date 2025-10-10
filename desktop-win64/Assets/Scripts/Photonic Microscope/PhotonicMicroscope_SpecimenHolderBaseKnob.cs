@@ -9,14 +9,14 @@ public class PhotonicMicroscope_SpecimenHolderBaseKnob : Knob {
     // Start is called before the first frame update
     public override void Start () {
 
-        PivotAxis = Axes.X_Axis;
+        MouseMovementAxis = Axes.X_Axis;
         RotationAxis = Axes.Z_Axis;
 
         da = 4F;
 
     }
 
-    public override void rotate (int _direction) {
+    public override void applyRotation (int _direction) {
 
         if (_direction > 0F && ControlSpecimenHolderBase.GetComponent<PhotonicMicroscope_SpecimenHolderBase> ().Length < PhotonicMicroscope_SpecimenHolderBase.MaxLength) {
 
