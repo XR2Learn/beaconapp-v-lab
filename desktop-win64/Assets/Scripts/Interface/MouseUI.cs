@@ -310,8 +310,7 @@ public class MouseUI : MonoBehaviour {
 
             VectorDistance_from_Camera = transform.position - mainCamera.transform.position;
 
-            if (!Rotating && Label != Labels.NonInteractable &&
-                VectorDistance_from_Camera.magnitude < MinimumDistance_for_Interaction) {
+            if (!Rotating && VectorDistance_from_Camera.magnitude < MinimumDistance_for_Interaction) {
 
                 Text_for_Tooltip = UserFriendlyName;
 

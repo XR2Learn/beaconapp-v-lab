@@ -230,7 +230,7 @@ public class EgoController : MonoBehaviour {
 
                 if (withinVerticalRotationLimits ())
                     //we rotate the child Camera, not Ego GameOject
-                    EmbeddedCamera.localEulerAngles = new Vector3 (EmbeddedCamera.localEulerAngles.x - AngularVerticalSpeed * rotate_vertically, 0F, 0F);
+                    EmbeddedCamera.localEulerAngles = new Vector3 (EmbeddedCamera.localEulerAngles.x - AngularVerticalSpeed * rotate_vertically * Time.deltaTime, 0F, 0F);
 
                 rotate_vertically = 0F;
 
