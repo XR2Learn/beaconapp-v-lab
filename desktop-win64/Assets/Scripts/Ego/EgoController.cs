@@ -74,9 +74,6 @@ public class EgoController : MonoBehaviour {
 
     public static bool CursorFrozen;
 
-    const float c = 0.017453F; // Degrees-to-Radians Conversion Coefficient
-                               // Radians = Pi / 180 * Degrees = 0.017453 * Degrees
-
 
     // Start is called before the first frame update
     void Start () {
@@ -198,13 +195,7 @@ public class EgoController : MonoBehaviour {
 
         if (move_vertically != 0F) {
 
-            float offset = LinearVerticalSpeed * move_vertically * Time.deltaTime;
-
-            rb.MovePosition (new Vector3 (
-                transform.position.x + offset * Mathf.Sin (c * transform.eulerAngles.y), 
-                transform.position.y, 
-                transform.position.z + offset * Mathf.Cos (c * transform.eulerAngles.y)
-                ));
+            rb.MovePosition (transform.position + transform.forward * LinearVerticalSpeed * move_vertically * Time.deltaTime);
             
             move_vertically = 0F;
 
@@ -212,13 +203,7 @@ public class EgoController : MonoBehaviour {
 
         if (move_horizontally != 0F) {
 
-            float offset = LinearHorizontalSpeed * move_horizontally * Time.deltaTime;
-
-            rb.MovePosition (new Vector3 (
-                transform.position.x + offset * Mathf.Cos (c* transform.eulerAngles.y),
-                transform.position.y, 
-                transform.position.z - offset * Mathf.Sin (c * transform.eulerAngles.y)
-                ));
+            rb.MovePosition (transform.position + transform.right * LinearHorizontalSpeed * move_horizontally * Time.deltaTime);
 
             move_horizontally = 0F;
 
